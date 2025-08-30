@@ -1,3 +1,4 @@
+import Stats from "stats.js";
 import { Device } from "../core/Device";
 import { Renderer } from "../core/Renderer";
 import { attachResize, sizeCanvas } from "./resize";
@@ -16,9 +17,20 @@ export async function bootstrap() {
     renderer.onResize(w, h);
   });
 
-  const loop = () => {
-    renderer.update(1 / 60);
+  const stats = new Stats();
+  stats.showPanel(0);
+  document.body.appendChild(stats.dom);
+  let last = performance.now();
+
+  const loop = (t: number) => {
+    stats?.begin();
+
+    const dt = (t - last) * 0.001;
+    last = t;
+    renderer.update(dt);
     renderer.render();
+
+    stats?.end();
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);

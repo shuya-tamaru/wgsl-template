@@ -5,13 +5,13 @@ type Opts = {
   distance?: number;
   minDist?: number;
   maxDist?: number;
-  theta?: number; // 水平角
-  phi?: number; // 仰角 (0..π)
-  rotSpeed?: number; // 旋回感度
-  zoomSpeed?: number; // ズーム係数
-  panSpeed?: number; // パン速度係数（画面高さ基準）
-  panMouseButton?: "right" | "middle"; // パンのボタン (デフォ右)
-  fovY?: number; // 視野（ラジアン）パン距離スケールに使用
+  theta?: number;
+  phi?: number;
+  rotSpeed?: number;
+  zoomSpeed?: number;
+  panSpeed?: number;
+  panMouseButton?: "right" | "middle";
+  fovY?: number;
 };
 
 export class OrbitCamera {
@@ -27,7 +27,7 @@ export class OrbitCamera {
   private zoomSpeed = 1.1;
   private panSpeed = 1.0;
   private panMouseButton: "right" | "middle" = "right";
-  private fovY = Math.PI / 4; // 45°
+  private fovY = Math.PI / 4;
 
   private dragging = false;
   private mode: "orbit" | "pan" | null = null;
@@ -54,9 +54,7 @@ export class OrbitCamera {
     this.updateView();
   }
 
-  // ------- イベント取り付け
   private attach() {
-    // 右クリックのコンテキストメニュー抑止（パンに使うため）
     this.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
     this.canvas.addEventListener("pointerdown", (e) => {
@@ -68,7 +66,6 @@ export class OrbitCamera {
         (this.panMouseButton === "right" && e.button === 2) ||
         (this.panMouseButton === "middle" && e.button === 1);
 
-      // Shift+左ドラッグでもパンできるように
       if (isPanBtn || (e.button === 0 && e.shiftKey)) {
         this.mode = "pan";
       } else {
@@ -113,7 +110,6 @@ export class OrbitCamera {
     );
   }
 
-  // ------- 操作処理
   private handleOrbit(dx: number, dy: number) {
     const w = this.canvas.clientWidth || 1;
     const h = this.canvas.clientHeight || 1;
@@ -129,13 +125,10 @@ export class OrbitCamera {
   }
 
   private handlePan(dx: number, dy: number) {
-    // 画面高さ 1px あたりのワールド距離（距離とFOVに比例）
     const h = this.canvas.clientHeight || 1;
     const pixelsToWorld =
       ((2 * this.dist * Math.tan(this.fovY / 2)) / h) * this.panSpeed;
 
-    // カメラ基底ベクトルを作る（右・上）
-    // eye 位置（現在の θ, φ, dist から逆算）
     const s = Math.sin(this.phi);
     const eye = vec3.fromValues(
       this.target[0] + this.dist * s * Math.cos(this.theta),
@@ -145,7 +138,7 @@ export class OrbitCamera {
     const f = vec3.normalize(
       vec3.create(),
       vec3.sub(vec3.create(), this.target, eye)
-    ); // forward
+    );
     const worldUp = vec3.fromValues(0, 1, 0);
     const right = vec3.normalize(
       vec3.create(),
@@ -156,14 +149,12 @@ export class OrbitCamera {
       vec3.cross(vec3.create(), right, f)
     );
 
-    // 画面の x は「右」、y は「上」に対応（yはスクリーン座標では下が+なので符号注意）
     vec3.scaleAndAdd(this.target, this.target, right, -dx * pixelsToWorld);
     vec3.scaleAndAdd(this.target, this.target, up, dy * pixelsToWorld);
 
     this.updateView();
   }
 
-  // ------- ビュー行列更新
   private updateView() {
     const s = Math.sin(this.phi);
     const ex = this.target[0] + this.dist * s * Math.cos(this.theta);
@@ -172,7 +163,6 @@ export class OrbitCamera {
     mat4.lookAt(this.view, [ex, ey, ez], this.target, [0, 1, 0]);
   }
 
-  // ------- API
   getView() {
     return this.view;
   }
@@ -186,5 +176,5 @@ export class OrbitCamera {
   }
   setFovY(rad: number) {
     this.fovY = rad;
-  } // Renderer から投影を変えたら合わせて呼ぶとパン速度が自然になる
+  }
 }
