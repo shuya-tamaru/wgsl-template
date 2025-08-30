@@ -2,6 +2,7 @@ import { mat4 } from "gl-matrix";
 import { createCubeGeometry } from "../gfx/createCubeGeometry";
 import { TransformSystem } from "../utils/TransformSystem";
 import cubeShader from "../shaders/cube.wgsl";
+import { OrbitCamera } from "./OrbitCamera";
 
 export class Renderer {
   private device: GPUDevice;
@@ -12,22 +13,38 @@ export class Renderer {
   private pipeline!: GPURenderPipeline;
   private bindGroup!: GPUBindGroup;
   private depth!: GPUTexture;
+  private orbit!: OrbitCamera;
 
   private vertex!: GPUBuffer;
   private index!: GPUBuffer;
   private indexCount = 0;
-
-  private angle = 0;
+  private cameraParams = {
+    fov: (45 * Math.PI) / 180,
+    near: 0.1,
+    far: 100,
+    lookAt: [2.5, 2.0, 3.2],
+    target: [0, 0, 0],
+    up: [0, 1, 0],
+    distance: 7,
+    theta: Math.PI / 4,
+    phi: Math.PI / 3,
+  };
 
   constructor(
     device: GPUDevice,
     context: GPUCanvasContext,
-    format: GPUTextureFormat
+    format: GPUTextureFormat,
+    canvas: HTMLCanvasElement
   ) {
     this.device = device;
     this.context = context;
     this.transformMatrix = new TransformSystem(device);
     this.format = format;
+    this.orbit = new OrbitCamera(canvas, {
+      distance: this.cameraParams.distance,
+      theta: this.cameraParams.theta,
+      phi: this.cameraParams.phi,
+    });
     this.init();
   }
 
@@ -38,9 +55,19 @@ export class Renderer {
       this.context.getCurrentTexture().width /
       this.context.getCurrentTexture().height;
     const view = mat4.create();
-    mat4.lookAt(view, [2.5, 2.0, 3.2], [0, 0, 0], [0, 1, 0]);
+    mat4.lookAt(
+      view,
+      this.cameraParams.lookAt,
+      this.cameraParams.target,
+      this.cameraParams.up
+    );
     this.transformMatrix.setView(view);
-    this.transformMatrix.setPerspective((45 * Math.PI) / 180, aspect, 0.1, 100);
+    this.transformMatrix.setPerspective(
+      this.cameraParams.fov,
+      aspect,
+      this.cameraParams.near,
+      this.cameraParams.far
+    );
     this.transformMatrix.setModel(mat4.create());
     this.transformMatrix.update();
 
@@ -96,10 +123,7 @@ export class Renderer {
   }
 
   update(dt: number) {
-    this.angle += dt * 0.8;
-    const m = mat4.create();
-    mat4.rotateY(m, m, this.angle);
-    this.transformMatrix.setModel(m);
+    this.transformMatrix.setView(this.orbit.getView());
     this.transformMatrix.update();
   }
 
@@ -107,8 +131,14 @@ export class Renderer {
     this.recreateDepth(w, h);
 
     const aspect = w / h;
-    this.transformMatrix.setPerspective((45 * Math.PI) / 180, aspect, 0.1, 100);
+    this.transformMatrix.setPerspective(
+      this.cameraParams.fov,
+      aspect,
+      this.cameraParams.near,
+      this.cameraParams.far
+    );
     this.transformMatrix.update();
+    this.orbit.setFovY(this.cameraParams.fov);
   }
 
   render() {

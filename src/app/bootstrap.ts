@@ -9,7 +9,7 @@ export async function bootstrap() {
   sizeCanvas(canvas);
 
   const { device, context, format } = await Device.init(canvas);
-  const renderer = new Renderer(device, context, format);
+  const renderer = new Renderer(device, context, format, canvas);
   await renderer.init();
 
   attachResize(canvas, (w, h) => {
