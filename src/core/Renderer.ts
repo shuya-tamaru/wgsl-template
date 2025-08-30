@@ -1,16 +1,14 @@
+import { TransformSystem } from "../utils/TransformSystem";
+
 export class Renderer {
   private device: GPUDevice;
   private context: GPUCanvasContext;
-  private format: GPUTextureFormat;
+  private transform: TransformSystem;
 
-  constructor(
-    device: GPUDevice,
-    context: GPUCanvasContext,
-    format: GPUTextureFormat
-  ) {
+  constructor(device: GPUDevice, context: GPUCanvasContext) {
     this.device = device;
     this.context = context;
-    this.format = format;
+    this.transform = new TransformSystem(device);
   }
 
   render() {

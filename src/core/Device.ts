@@ -25,6 +25,6 @@ export class Device {
       alphaMode: "opaque",
     });
 
-    return { device, context, format };
+    return { device, context };
   }
 }

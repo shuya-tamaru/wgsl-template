@@ -10,8 +10,8 @@ export async function bootstrap() {
   canvas.width = canvas.clientWidth * dpr;
   canvas.height = canvas.clientHeight * dpr;
 
-  const { device, context, format } = await Device.init(canvas);
-  const renderer = new Renderer(device, context, format);
+  const { device, context } = await Device.init(canvas);
+  const renderer = new Renderer(device, context);
 
   const loop = () => {
     renderer.render();
