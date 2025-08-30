@@ -86,11 +86,28 @@ export class Renderer {
     });
   }
 
+  private recreateDepth(w: number, h: number) {
+    this.depth?.destroy?.();
+    this.depth = this.device.createTexture({
+      size: [w, h],
+      format: "depth24plus",
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+  }
+
   update(dt: number) {
     this.angle += dt * 0.8;
     const m = mat4.create();
     mat4.rotateY(m, m, this.angle);
     this.transformMatrix.setModel(m);
+    this.transformMatrix.update();
+  }
+
+  onResize(w: number, h: number) {
+    this.recreateDepth(w, h);
+
+    const aspect = w / h;
+    this.transformMatrix.setPerspective((45 * Math.PI) / 180, aspect, 0.1, 100);
     this.transformMatrix.update();
   }
 
