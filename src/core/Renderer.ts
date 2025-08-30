@@ -1,14 +1,97 @@
+import { mat4 } from "gl-matrix";
+import { createCubeGeometry } from "../gfx/createCubeGeometry";
 import { TransformSystem } from "../utils/TransformSystem";
+import cubeShader from "../shaders/cube.wgsl";
 
 export class Renderer {
   private device: GPUDevice;
   private context: GPUCanvasContext;
-  private transform: TransformSystem;
+  private format: GPUTextureFormat;
+  private transformMatrix: TransformSystem;
 
-  constructor(device: GPUDevice, context: GPUCanvasContext) {
+  private pipeline!: GPURenderPipeline;
+  private bindGroup!: GPUBindGroup;
+  private depth!: GPUTexture;
+
+  private vertex!: GPUBuffer;
+  private index!: GPUBuffer;
+  private indexCount = 0;
+
+  private angle = 0;
+
+  constructor(
+    device: GPUDevice,
+    context: GPUCanvasContext,
+    format: GPUTextureFormat
+  ) {
     this.device = device;
     this.context = context;
-    this.transform = new TransformSystem(device);
+    this.transformMatrix = new TransformSystem(device);
+    this.format = format;
+    this.init();
+  }
+
+  async init() {
+    this.createDepth();
+
+    const aspect =
+      this.context.getCurrentTexture().width /
+      this.context.getCurrentTexture().height;
+    const view = mat4.create();
+    mat4.lookAt(view, [2.5, 2.0, 3.2], [0, 0, 0], [0, 1, 0]);
+    this.transformMatrix.setView(view);
+    this.transformMatrix.setPerspective((45 * Math.PI) / 180, aspect, 0.1, 100);
+    this.transformMatrix.setModel(mat4.create());
+    this.transformMatrix.update();
+
+    const geo = createCubeGeometry(this.device);
+    this.vertex = geo.vertexBuffer;
+    this.index = geo.indexBuffer;
+    this.indexCount = geo.indexCount;
+
+    const module = this.device.createShaderModule({
+      code: cubeShader,
+    });
+
+    this.pipeline = this.device.createRenderPipeline({
+      layout: "auto",
+      vertex: { module, entryPoint: "vs_main", buffers: [geo.layout] },
+      fragment: {
+        module,
+        entryPoint: "fs_main",
+        targets: [{ format: this.format }],
+      },
+      primitive: { topology: "triangle-list" },
+      depthStencil: {
+        format: "depth24plus",
+        depthWriteEnabled: true,
+        depthCompare: "less",
+      },
+    });
+
+    this.bindGroup = this.device.createBindGroup({
+      layout: this.pipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.transformMatrix.getBuffer() } },
+      ],
+    });
+  }
+
+  private createDepth() {
+    const cur = this.context.getCurrentTexture();
+    this.depth = this.device.createTexture({
+      size: [cur.width, cur.height],
+      format: "depth24plus",
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+  }
+
+  update(dt: number) {
+    this.angle += dt * 0.8;
+    const m = mat4.create();
+    mat4.rotateY(m, m, this.angle);
+    this.transformMatrix.setModel(m);
+    this.transformMatrix.update();
   }
 
   render() {
@@ -22,7 +105,18 @@ export class Renderer {
           storeOp: "store",
         },
       ],
+      depthStencilAttachment: {
+        view: this.depth.createView(),
+        depthClearValue: 1,
+        depthLoadOp: "clear",
+        depthStoreOp: "store",
+      },
     });
+    pass.setPipeline(this.pipeline);
+    pass.setBindGroup(0, this.bindGroup);
+    pass.setVertexBuffer(0, this.vertex);
+    pass.setIndexBuffer(this.index, "uint16");
+    pass.drawIndexed(this.indexCount);
     pass.end();
     this.device.queue.submit([encoder.finish()]);
   }
